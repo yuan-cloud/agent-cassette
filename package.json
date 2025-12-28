@@ -1,0 +1,20 @@
+{
+  "name": "agent-cassette",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "demo:record": "CASSETTE_MODE=record npx tsx examples/openai-responses-demo.ts",
+    "demo:replay": "CASSETTE_MODE=replay npx tsx examples/openai-responses-demo.ts"
+  },
+  "dependencies": {
+    "openai": "*"
+  },
+  "devDependencies": {
+    "@types/node": "*",
+    "tsx": "*",
+    "typescript": "*",
+    "vitest": "*"
+  }
+}

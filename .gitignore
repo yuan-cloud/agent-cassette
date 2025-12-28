@@ -1,0 +1,8 @@
+node_modules
+.DS_Store
+
+# cassettes may contain prompts/outputs; keep local by default
+cassettes/*.jsonl
+
+# optional env file if you use it later
+.env
