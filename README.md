@@ -26,34 +26,30 @@ Modes:
 - `auto`: replay if cassette exists, otherwise record
 
 ## Quickstart (OpenAI Responses API)
-Install deps:
 
+### Install:
 ```bash
 npm install
+```
 
-Record (requires API key):
-
+### Record (requires API key)
 ```bash
 export OPENAI_API_KEY="YOUR_KEY"
 npm run demo:record
+```
 
-Replay (no API key required):
-
+### Replay (no API key required)
 ```bash
 unset OPENAI_API_KEY
 npm run demo:replay
+```
 
-You’ll see metrics like:
+## Metrics
+Cassette prints:
+- replay hit rate
+- tokens recorded
+- tokens saved estimate
 
-replay hit rate
-
-tokens recorded
-
-tokens saved estimate
-
-Limitations (v0)
-
-Streaming responses are treated as complete responses (chunk timing not preserved).
-
-Replay matching depends on a stable request identity (semantic hash). If you change the prompt/model/tools, you should expect a miss.
-
+## Limitations (v0)
+- Streaming responses are treated as complete responses (chunk timing not preserved).
+- Replay matching depends on a stable request identity (semantic hash). If you change the prompt/model/tools, you should expect a miss.
