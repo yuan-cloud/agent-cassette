@@ -1,4 +1,17 @@
+# Dependencies
 node_modules
-.DS_Store
-cassettes/*.jsonl
+
+# Environment Variables (Security Critical)
 .env
+
+# System Files
+.DS_Store
+
+# Logs
+npm-debug.log*
+
+# Build artifacts (if we compile later on)
+dist/
+
+# NOTE: We specifically DO NOT ignore 'cassettes/' 
+# We want to commit the golden recordings so CI/Replay works for reviewers.

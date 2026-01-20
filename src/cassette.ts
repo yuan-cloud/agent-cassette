@@ -48,7 +48,8 @@ function sortKeysRecursively(value: unknown): unknown {
     const recordValue = value as UnknownRecord;
     const sortedKeys = Object.keys(recordValue).sort();
     const sortedRecord: UnknownRecord = {};
-    for (const key of sortedKeys) sortedRecord[key] = sortKeysRecursively(recordValue[key]);
+    for (const key of sortedKeys)
+      sortedRecord[key] = sortKeysRecursively(recordValue[key]);
     return sortedRecord;
   }
 
@@ -66,8 +67,8 @@ function sha256Hex(value: string): string {
 function defaultRedactValue(value: unknown): unknown {
   if (typeof value === "string") {
     return value
-      .replace(/Bearer\s+[A-Za-z0-9_\-\.]+/g, "Bearer [REDACTED]")
-      .replace(/sk-[A-Za-z0-9_\-]+/g, "sk-[REDACTED]");
+      .replace(/Bearer\s+[A-Za-z0-9_.-]+/g, "Bearer [REDACTED]") // Fixed regex
+      .replace(/sk-[A-Za-z0-9_-]+/g, "sk-[REDACTED]");           // Fixed regex
   }
 
   if (Array.isArray(value)) return value.map(defaultRedactValue);
@@ -94,7 +95,9 @@ function readJsonlEntries(cassetteFilePath: string): CassetteEntry[] {
     .map((line) => JSON.parse(line) as CassetteEntry);
 }
 
-function getTotalTokensFromMeta(meta: Record<string, unknown> | undefined): number {
+function getTotalTokensFromMeta(
+  meta: Record<string, unknown> | undefined,
+): number {
   if (!meta) return 0;
   const totalTokensCandidate = meta.total_tokens;
   return typeof totalTokensCandidate === "number" ? totalTokensCandidate : 0;
@@ -129,13 +132,17 @@ export function createCassette(createCassetteOptions: CreateCassetteOptions) {
     replay_hits: 0,
     replay_misses: 0,
     total_tokens_recorded: 0,
-    total_tokens_saved_estimate: 0
+    total_tokens_saved_estimate: 0,
   };
 
   function appendEntry(entry: CassetteEntry) {
     mkdirSync(dirname(cassetteFilePath), { recursive: true });
     const redactedEntry = redactValue(entry) as CassetteEntry;
-    appendFileSync(cassetteFilePath, `${JSON.stringify(redactedEntry)}\n`, "utf8");
+    appendFileSync(
+      cassetteFilePath,
+      `${JSON.stringify(redactedEntry)}\n`,
+      "utf8",
+    );
   }
 
   function wrapAsyncFunction<ArgumentTuple extends readonly unknown[], TResult>(
@@ -145,10 +152,12 @@ export function createCassette(createCassetteOptions: CreateCassetteOptions) {
       buildRequestIdentity?: (args: ArgumentTuple) => unknown;
       buildArgsPreview?: (args: ArgumentTuple) => unknown;
       buildMeta?: (result: TResult) => Record<string, unknown> | undefined;
-    }
+    },
   ) {
-    const buildRequestIdentity = options?.buildRequestIdentity ?? ((args: ArgumentTuple) => args);
-    const buildArgsPreview = options?.buildArgsPreview ?? ((args: ArgumentTuple) => args);
+    const buildRequestIdentity =
+      options?.buildRequestIdentity ?? ((args: ArgumentTuple) => args);
+    const buildArgsPreview =
+      options?.buildArgsPreview ?? ((args: ArgumentTuple) => args);
     const buildMeta = options?.buildMeta ?? (() => undefined);
 
     return async (...args: ArgumentTuple): Promise<TResult> => {
@@ -167,11 +176,14 @@ export function createCassette(createCassetteOptions: CreateCassetteOptions) {
         }
 
         sessionStats.replay_hits += 1;
-        sessionStats.total_tokens_saved_estimate += getTotalTokensFromMeta(nextEntry.meta);
+        sessionStats.total_tokens_saved_estimate += getTotalTokensFromMeta(
+          nextEntry.meta,
+        );
 
         if (nextEntry.error) {
           const replayedError = new Error(nextEntry.error.message);
           replayedError.name = nextEntry.error.name;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (replayedError as any).stack = nextEntry.error.stack;
           throw replayedError;
         }
@@ -198,7 +210,7 @@ export function createCassette(createCassetteOptions: CreateCassetteOptions) {
           latency_ms: latencyMs,
           args_preview: buildArgsPreview(args),
           result,
-          meta
+          meta,
         };
 
         appendEntry(entry);
@@ -212,7 +224,11 @@ export function createCassette(createCassetteOptions: CreateCassetteOptions) {
 
         const errorObject =
           unknownError instanceof Error
-            ? { name: unknownError.name, message: unknownError.message, stack: unknownError.stack }
+            ? {
+                name: unknownError.name,
+                message: unknownError.message,
+                stack: unknownError.stack,
+              }
             : { name: "UnknownError", message: String(unknownError) };
 
         const entry: CassetteEntry = {
@@ -222,7 +238,7 @@ export function createCassette(createCassetteOptions: CreateCassetteOptions) {
           recorded_at_ms: Date.now(),
           latency_ms: latencyMs,
           args_preview: buildArgsPreview(args),
-          error: errorObject
+          error: errorObject,
         };
 
         appendEntry(entry);
@@ -251,11 +267,16 @@ function normalizeInput(input: unknown): unknown {
     return input.map((messageLike) => {
       if (messageLike && typeof messageLike === "object") {
         const messageRecord = messageLike as UnknownRecord;
-        const role = typeof messageRecord.role === "string" ? messageRecord.role : undefined;
+        const role =
+          typeof messageRecord.role === "string"
+            ? messageRecord.role
+            : undefined;
 
         const rawContent = messageRecord.content;
         const normalizedContent =
-          typeof rawContent === "string" ? normalizeNewlines(rawContent).trim() : rawContent;
+          typeof rawContent === "string"
+            ? normalizeNewlines(rawContent).trim()
+            : rawContent;
 
         return { role, content: normalizedContent };
       }
@@ -273,9 +294,11 @@ function normalizeToolDescriptors(tools: unknown): string[] {
     if (!tool || typeof tool !== "object") return "unknown";
 
     const toolRecord = tool as UnknownRecord;
-    const type = typeof toolRecord.type === "string" ? toolRecord.type : "unknown";
+    const type =
+      typeof toolRecord.type === "string" ? toolRecord.type : "unknown";
 
-    const topLevelName = typeof toolRecord.name === "string" ? toolRecord.name : undefined;
+    const topLevelName =
+      typeof toolRecord.name === "string" ? toolRecord.name : undefined;
 
     const nestedFunction = toolRecord.function;
     const nestedName =
@@ -295,30 +318,42 @@ function normalizeToolDescriptors(tools: unknown): string[] {
 
 export function createOpenAIResponsesRequestIdentity(
   requestParams: UnknownRecord,
-  options?: { hashProfile?: CassetteHashProfile }
+  options?: { hashProfile?: CassetteHashProfile },
 ): UnknownRecord {
   const hashProfile = options?.hashProfile ?? "strict";
 
   const identity: UnknownRecord = {
     model: requestParams.model,
-    instructions: typeof requestParams.instructions === "string" ? normalizeNewlines(requestParams.instructions).trim() : undefined,
+    instructions:
+      typeof requestParams.instructions === "string"
+        ? normalizeNewlines(requestParams.instructions).trim()
+        : undefined,
     input: normalizeInput(requestParams.input),
-    tools: normalizeToolDescriptors(requestParams.tools)
+    tools: normalizeToolDescriptors(requestParams.tools),
   };
 
   if (hashProfile === "strict") {
-    identity.temperature = typeof requestParams.temperature === "number" ? requestParams.temperature : undefined;
-    identity.top_p = typeof requestParams.top_p === "number" ? requestParams.top_p : undefined;
+    identity.temperature =
+      typeof requestParams.temperature === "number"
+        ? requestParams.temperature
+        : undefined;
+    identity.top_p =
+      typeof requestParams.top_p === "number" ? requestParams.top_p : undefined;
     identity.max_output_tokens =
-      typeof requestParams.max_output_tokens === "number" ? requestParams.max_output_tokens : undefined;
+      typeof requestParams.max_output_tokens === "number"
+        ? requestParams.max_output_tokens
+        : undefined;
     identity.tool_choice = requestParams.tool_choice;
   }
 
   return identity;
 }
 
-export function extractOpenAIUsageMeta(possibleOpenAIResponse: unknown): Record<string, unknown> | undefined {
-  if (!possibleOpenAIResponse || typeof possibleOpenAIResponse !== "object") return undefined;
+export function extractOpenAIUsageMeta(
+  possibleOpenAIResponse: unknown,
+): Record<string, unknown> | undefined {
+  if (!possibleOpenAIResponse || typeof possibleOpenAIResponse !== "object")
+    return undefined;
   const responseRecord = possibleOpenAIResponse as UnknownRecord;
   const usage = responseRecord.usage;
 
@@ -334,6 +369,6 @@ export function extractOpenAIUsageMeta(possibleOpenAIResponse: unknown): Record<
   return {
     total_tokens: totalTokens,
     input_tokens: typeof inputTokens === "number" ? inputTokens : undefined,
-    output_tokens: typeof outputTokens === "number" ? outputTokens : undefined
+    output_tokens: typeof outputTokens === "number" ? outputTokens : undefined,
   };
 }

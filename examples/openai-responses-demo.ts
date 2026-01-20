@@ -1,11 +1,17 @@
 import OpenAI from "openai";
-import { createCassette, createOpenAIResponsesRequestIdentity, extractOpenAIUsageMeta } from "../src/index";
+import {
+  createCassette,
+  createOpenAIResponsesRequestIdentity,
+  extractOpenAIUsageMeta,
+} from "../src/index";
 
-const cassetteMode = (process.env.CASSETTE_MODE as "record" | "replay" | "passthrough" | "auto") ?? "record";
+const cassetteMode =
+  (process.env.CASSETTE_MODE as "record" | "replay" | "passthrough" | "auto") ??
+  "record";
 
 const cassette = createCassette({
   cassetteFilePath: "./cassettes/demo.jsonl",
-  mode: cassetteMode
+  mode: cassetteMode,
 });
 
 let lazyOpenAIClient: OpenAI | undefined;
@@ -18,12 +24,16 @@ function getOpenAIClient(): OpenAI {
 
 const responsesCreate = cassette.wrapAsyncFunction(
   "openai.responses.create",
-  async (requestParams: any) => getOpenAIClient().responses.create(requestParams),
+  // Use 'unknown' or the specific type
+  async (requestParams: OpenAI.Responses.ResponseCreateParams) =>
+    getOpenAIClient().responses.create(requestParams),
   {
-    buildRequestIdentity: ([requestParams]) => createOpenAIResponsesRequestIdentity(requestParams, { hashProfile: "strict" }),
+    // Cast to Record<string, unknown> to satisfy the helper
+    buildRequestIdentity: ([requestParams]) => createOpenAIResponsesRequestIdentity(requestParams as Record<string, unknown>, { hashProfile: "strict" }),
     buildArgsPreview: ([requestParams]) => ({
       model: requestParams?.model,
-      input_preview: typeof requestParams?.input === "string" ? requestParams.input.slice(0, 120) : requestParams?.input
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      input_preview: typeof (requestParams as any)?.input === "string" ? (requestParams as any).input.slice(0, 120) : (requestParams as any)?.input
     }),
     buildMeta: (response) => extractOpenAIUsageMeta(response)
   }
@@ -34,16 +44,25 @@ async function main() {
 
   const response = await responsesCreate({
     model: modelName,
-    input: [{ role: "user", content: "Write a 2-sentence story about a unicorn debugging a flaky test." }],
-    store: false
+    input: [
+      {
+        role: "user",
+        content:
+          "Write a 2-sentence story about a unicorn debugging a flaky test.",
+      },
+    ],
+    store: false,
   });
 
   console.log("mode:", cassetteMode);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   console.log("output_text:", (response as any).output_text);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   console.log("usage:", (response as any).usage);
 
   const stats = cassette.getSessionStats();
-  const replayHitRate = stats.calls_replayed === 0 ? 0 : stats.replay_hits / stats.calls_replayed;
+  const replayHitRate =
+    stats.calls_replayed === 0 ? 0 : stats.replay_hits / stats.calls_replayed;
 
   console.log("--- cassette stats ---");
   console.log("calls_recorded:", stats.calls_recorded);

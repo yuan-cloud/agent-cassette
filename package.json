@@ -5,16 +5,25 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "demo:record": "CASSETTE_MODE=record npx tsx examples/openai-responses-demo.ts",
-    "demo:replay": "CASSETTE_MODE=replay npx tsx examples/openai-responses-demo.ts"
+    "demo:record": "CASSETTE_MODE=record tsx examples/openai-responses-demo.ts",
+    "demo:replay": "CASSETTE_MODE=replay tsx examples/openai-responses-demo.ts",
+    "nodered:record": "CASSETTE_MODE=record tsx examples/node-red-generator.ts",
+    "nodered:replay": "CASSETTE_MODE=replay tsx examples/node-red-generator.ts",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
-    "openai": "*"
+    "openai": "^4.0.0"
   },
   "devDependencies": {
-    "@types/node": "*",
-    "tsx": "*",
-    "typescript": "*",
-    "vitest": "*"
+    "@eslint/js": "^9.39.2",
+    "@types/node": "^20.0.0",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.53.1",
+    "vitest": "^1.0.0"
   }
 }
