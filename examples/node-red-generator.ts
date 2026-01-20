@@ -57,7 +57,7 @@ const safeCreate = cassette.wrapAsyncFunction(
     getOpenAIClient().responses.create(params),
   {
     buildRequestIdentity: ([params]) =>
-      createOpenAIResponsesRequestIdentity(params as Record<string, unknown>),
+      createOpenAIResponsesRequestIdentity(params as unknown as Record<string, unknown>),
     buildMeta: (res) => extractOpenAIUsageMeta(res),
   },
 );

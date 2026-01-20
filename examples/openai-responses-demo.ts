@@ -29,7 +29,7 @@ const responsesCreate = cassette.wrapAsyncFunction(
     getOpenAIClient().responses.create(requestParams),
   {
     // Cast to Record<string, unknown> to satisfy the helper
-    buildRequestIdentity: ([requestParams]) => createOpenAIResponsesRequestIdentity(requestParams as Record<string, unknown>, { hashProfile: "strict" }),
+    buildRequestIdentity: ([requestParams]) => createOpenAIResponsesRequestIdentity(requestParams as unknown as Record<string, unknown>, { hashProfile: "strict" }),
     buildArgsPreview: ([requestParams]) => ({
       model: requestParams?.model,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

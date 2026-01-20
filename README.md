@@ -24,7 +24,7 @@ Cassette turns "I swear it failed yesterday" into a replayable, immutable artifa
 
 ## Enterprise Use Case: Reliable Code Generation
 
-**(See `examples/node-red-generator.ts`)**
+**(See [`examples/node-red-generator.ts`](./examples/node-red-generator.ts))**
 
 This tool is designed for platforms like **FlowFuse** or **Node-RED** where AI agents generate executable code.
 Agent Cassette provides a **Regression Testing Harness** that ensures:
