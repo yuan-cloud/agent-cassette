@@ -75,12 +75,12 @@ sequenceDiagram
 │                     RECORD MODE (Golden Run)                    │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│   User ──────► Cassette ──────► OpenAI                         │
+│   User ──────► Cassette ──────► OpenAI                          │
 │                   │                │                            │
 │                   │◄───────────────┘ (Return Code)              │
 │                   │                                             │
 │                   ▼                                             │
-│            Validate Schema ──► [FAIL?] ──► Apply Fallback      │
+│            Validate Schema ──► [FAIL?] ──► Apply Fallback       │
 │                   │                                             │
 │                   ▼                                             │
 │            Save to JSONL                                        │
@@ -94,12 +94,12 @@ sequenceDiagram
 │                    REPLAY MODE (CI/Docker)                      │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│   User ──────► Cassette                                        │
+│   User ──────► Cassette                                         │
 │                   │                                             │
 │            Match Semantic Hash                                  │
 │                   │                                             │
 │                   ▼                                             │
-│   User ◄─────── Return Saved Response (0ms, 0 tokens)          │
+│   User ◄─────── Return Saved Response (0ms, 0 tokens)           │
 │                                                                 │
 │              [Runtime SKIPPED - Safe for Production]            │
 │                                                                 │
