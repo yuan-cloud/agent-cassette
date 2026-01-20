@@ -44,27 +44,69 @@ sequenceDiagram
     participant OpenAI
     participant Runtime as FlowFuse/Runtime
 
-    alt Record Mode (Golden Run)
+    rect rgb(240, 248, 255)
+        Note over User,Runtime: Record Mode (Golden Run)
         User->>Cassette: Call Agent
         Cassette->>OpenAI: Forward Request
         OpenAI-->>Cassette: Return Code
-        Cassette->>Cassette: Validate Schema (FunctionCodeSchema)
-
-        opt Validation Fails
+        Cassette->>Cassette: Validate Schema
+        alt Validation Fails
             Cassette->>Cassette: Apply Fallback Code
-            Note right of Cassette: "Schema Violation Detected"
         end
-
         Cassette->>Cassette: Save to JSONL
-        Cassette->>Runtime: Execute Side Effect (Deploy)
+        Cassette->>Runtime: Execute Side Effect
         Runtime-->>Cassette: Return Status
-    else Replay Mode (CI/Docker)
+    end
+
+    rect rgb(255, 245, 238)
+        Note over User,Runtime: Replay Mode (CI/Docker)
         User->>Cassette: Call Agent
         Cassette->>Cassette: Match Semantic Hash
         Cassette-->>User: Return Saved Response (0ms)
-        Note right of Runtime: Side Effect SKIPPED <br/>(Safe for Production)
+        Note over Runtime: Side Effect SKIPPED
     end
 ```
+
+<details>
+<summary>Text diagram (if Mermaid doesn't render)</summary>
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     RECORD MODE (Golden Run)                    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   User ──────► Cassette ──────► OpenAI                         │
+│                   │                │                            │
+│                   │◄───────────────┘ (Return Code)              │
+│                   │                                             │
+│                   ▼                                             │
+│            Validate Schema ──► [FAIL?] ──► Apply Fallback      │
+│                   │                                             │
+│                   ▼                                             │
+│            Save to JSONL                                        │
+│                   │                                             │
+│                   ▼                                             │
+│              Runtime ──► Execute Side Effect                    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                    REPLAY MODE (CI/Docker)                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   User ──────► Cassette                                        │
+│                   │                                             │
+│            Match Semantic Hash                                  │
+│                   │                                             │
+│                   ▼                                             │
+│   User ◄─────── Return Saved Response (0ms, 0 tokens)          │
+│                                                                 │
+│              [Runtime SKIPPED - Safe for Production]            │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+</details>
 
 ---
 
