@@ -47,7 +47,8 @@ function sortKeysRecursively(value: unknown): unknown {
   if (value !== null && typeof value === "object") {
     const recordValue = value as UnknownRecord;
     const sortedKeys = Object.keys(recordValue).sort();
-    const sortedRecord: UnknownRecord = {};
+    // Preserve own keys such as "__proto__" in JSON schemas and other inputs.
+    const sortedRecord: UnknownRecord = Object.create(null);
     for (const key of sortedKeys)
       sortedRecord[key] = sortKeysRecursively(recordValue[key]);
     return sortedRecord;
@@ -331,6 +332,13 @@ export function createOpenAIResponsesRequestIdentity(
     input: normalizeInput(requestParams.input),
     tools: normalizeToolDescriptors(requestParams.tools),
   };
+
+  // Output contracts matter in both profiles. Omit absent formats for legacy hashes.
+  const text = requestParams.text;
+  if (text && typeof text === "object") {
+    const format = (text as UnknownRecord).format;
+    if (format !== undefined) identity.text = { format };
+  }
 
   if (hashProfile === "strict") {
     identity.temperature =
