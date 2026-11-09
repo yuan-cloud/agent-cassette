@@ -21,16 +21,23 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      # 1. Lint Check
       - name: Lint Code
         run: npm run lint
 
-      # 2. Unit Tests (Core Logic)
+      - name: Check TypeScript
+        run: ./node_modules/.bin/tsc --noEmit
+
       - name: Run Unit Tests
         run: npm test
 
-      # 3. Node-RED Replay (No API Key needed)
+      - name: Verify Ordinary Demo (Replay Mode)
+        run: npm run demo:replay
+        env:
+          OPENAI_API_KEY: ""
+          CASSETTE_MODE: replay
+
       - name: Verify Node-RED Generator (Replay Mode)
         run: npm run nodered:replay
         env:
+          OPENAI_API_KEY: ""
           CASSETTE_MODE: replay

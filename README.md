@@ -1,11 +1,12 @@
 # Agent Cassette 📼
 
-**Record once → replay forever → deterministic tests for AI agents.**
+**Record calls → replay saved results → offline regression tests for AI agents.**
 
 Agent Cassette is a lightweight record-and-replay harness for agent workflows.
-It captures structured **run traces** (LLM calls + tool calls) as they execute so you can replay behavior offline, write regression tests, and measure token/latency impact without hitting external APIs again.
+It captures explicitly wrapped LLM and tool calls so you can test application behavior against saved results without repeating those external calls. Recordings can include usage and latency metadata from the original run.
 
-> **v0:** Explicit wrapper–based (Stable & Type-Safe).  
+> **v0:** Explicit wrapper–based TypeScript prototype.
+>
 > **v1:** (Planned) Network interceptor plugin.
 
 ---
@@ -15,23 +16,22 @@ It captures structured **run traces** (LLM calls + tool calls) as they execute s
 Agent runs are often flaky and expensive:
 
 - **Non-determinism:** The same prompt can produce different outputs.
-- **Slow feedback:** Integration tests spend 90% of their time waiting on network calls.
+- **Slow feedback:** Integration tests can spend substantial time waiting on network calls.
 - **Cost:** Repeated debugging burns tokens and money.
 
-Cassette turns "I swear it failed yesterday" into a replayable, immutable artifact.
+Cassette turns "I swear it failed yesterday" into a versioned recording you can replay.
 
 ---
 
-## Enterprise Use Case: Reliable Code Generation
+## Example: Node-RED Flow Generation
 
 **(See [`examples/node-red-generator.ts`](./examples/node-red-generator.ts))**
 
-This tool is designed for platforms like **FlowFuse** or **Node-RED** where AI agents generate executable code.
-Agent Cassette provides a **Regression Testing Harness** that ensures:
+The example records an OpenAI response and a simulated Node-RED deployment:
 
-1. **Strict Schema Validation:** Agents must output valid JSON structures (e.g., correct `wires` and `coordinates`).
-2. **Semantic Safety:** If an agent generates unsafe code (e.g., missing `return msg`), the system detects it and swaps in a safe fallback.
-3. **Deterministic Replay:** We record a "Golden Run" of a complex flow generation. CI pipelines can replay this instantly (0 cost) to prove that model upgrades (e.g., GPT-4o → GPT-5) don't break the JSON schema.
+1. **Saved responses:** Replay supplies the recorded JSON output to the application's parsing and orchestration code.
+2. **Illustrative validation:** The simulated deployment checks for `msg.payload` and `return msg` substrings and substitutes fallback code when either is missing. This does not validate JavaScript syntax, flow schemas, wiring, coordinates, or code safety. Replaying the deployment returns its saved result and skips that validation function.
+3. **Regression scope:** Offline replay tests behavior with existing recordings. It does not evaluate a newer model's output or prove a model upgrade is compatible. Changing the model changes the request identity and requires separately evaluated recordings.
 
 ---
 
@@ -41,29 +41,23 @@ Agent Cassette provides a **Regression Testing Harness** that ensures:
 sequenceDiagram
     participant User
     participant Cassette
-    participant OpenAI
-    participant Runtime as FlowFuse/Runtime
+    participant Function as Wrapped function
 
     rect rgb(240, 248, 255)
-        Note over User,Runtime: Record Mode (Golden Run)
-        User->>Cassette: Call Agent
-        Cassette->>OpenAI: Forward Request
-        OpenAI-->>Cassette: Return Code
-        Cassette->>Cassette: Validate Schema
-        alt Validation Fails
-            Cassette->>Cassette: Apply Fallback Code
-        end
-        Cassette->>Cassette: Save to JSONL
-        Cassette->>Runtime: Execute Side Effect
-        Runtime-->>Cassette: Return Status
+        Note over User,Function: Record mode
+        User->>Cassette: Call wrapped function
+        Cassette->>Function: Invoke real function (including side effects)
+        Function-->>Cassette: Result or error
+        Cassette->>Cassette: Redact and append entry to JSONL
+        Cassette-->>User: Result or error
     end
 
     rect rgb(255, 245, 238)
-        Note over User,Runtime: Replay Mode (CI/Docker)
-        User->>Cassette: Call Agent
-        Cassette->>Cassette: Match Semantic Hash
-        Cassette-->>User: Return Saved Response (0ms)
-        Note over Runtime: Side Effect SKIPPED
+        Note over User,Function: Replay mode
+        User->>Cassette: Call wrapped function
+        Cassette->>Cassette: Match call name and request hash
+        Cassette-->>User: Saved result/error, or explicit miss
+        Note over Function: Wrapped function is skipped
     end
 ```
 
@@ -71,39 +65,9 @@ sequenceDiagram
 <summary>Text diagram (if Mermaid doesn't render)</summary>
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     RECORD MODE (Golden Run)                    │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   User ──────► Cassette ──────► OpenAI                          │
-│                   │                │                            │
-│                   │◄───────────────┘ (Return Code)              │
-│                   │                                             │
-│                   ▼                                             │
-│            Validate Schema ──► [FAIL?] ──► Apply Fallback       │
-│                   │                                             │
-│                   ▼                                             │
-│            Save to JSONL                                        │
-│                   │                                             │
-│                   ▼                                             │
-│              Runtime ──► Execute Side Effect                    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                    REPLAY MODE (CI/Docker)                      │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   User ──────► Cassette                                         │
-│                   │                                             │
-│            Match Semantic Hash                                  │
-│                   │                                             │
-│                   ▼                                             │
-│   User ◄─────── Return Saved Response (0ms, 0 tokens)           │
-│                                                                 │
-│              [Runtime SKIPPED - Safe for Production]            │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+Record: call → invoke real function → append result/error → return
+Replay: call → lookup saved entry → return result/error, or throw a miss
+Only wrapped functions are skipped during replay.
 ```
 
 </details>
@@ -112,31 +76,42 @@ sequenceDiagram
 
 ## How It Works (v0)
 
-Cassette wraps async functions and records `{request_identity → result}` as JSONL (one JSON object per line). JSONL is append-friendly and crash-safe: if a run dies mid-flight, earlier lines remain valid.
+Cassette wraps async functions and records `{request_identity → result}` as JSONL (one JSON object per line). JSONL is append-friendly, but an incomplete or malformed line currently prevents the entire file from loading; there is no automatic crash recovery.
 
 **Modes:**
 
-| Mode          | Behavior                                                        |
-| ------------- | --------------------------------------------------------------- |
-| `record`      | Call real function, validate result, append entry               |
-| `replay`      | Match semantic hash, return recorded result (network is mocked) |
-| `passthrough` | Call without recording                                          |
-| `auto`        | Replay if cassette exists, otherwise record                     |
+| Mode          | Behavior                                                         |
+| ------------- | ---------------------------------------------------------------- |
+| `record`      | Call real function, append its result or error                   |
+| `replay`      | Match call name/hash, return saved result/error, or throw a miss |
+| `passthrough` | Call without recording                                           |
+| `auto`        | Replay if cassette exists, otherwise record                      |
+
+Replay skips the wrapped function only; it does not intercept other network calls or side effects. Use an explicit `replay` mode for offline workflows. Validate mode strings at runtime when accepting external configuration: TypeScript casts do not validate them, and an unrecognized mode currently falls through to recording.
+
+### Identity and compatibility limits
+
+The Responses helper includes the full `text.format` contract in both strict and lenient profiles, with object keys canonicalized recursively. Explicit formats therefore miss older recordings whose hashes omitted that field. Requests without a format retain their old hashes, which can still match an unmigrated recording originally made with a format. Audit or isolate legacy recordings before relying on them; see the [bounded migration of the trusted Node-RED fixtures](docs/engineering/node-red-cassette-migration-proposal.md).
+
+The helper is a partial request projection. Tool schemas, non-message structured input fields (such as function-call outputs), `previous_response_id`, and `text.verbosity` are separate correctness follow-ups: differences in those fields can currently produce wrong replay hits in both profiles. For such requests, supply a `buildRequestIdentity` that preserves every field relevant to your application instead of relying on this helper. The pinned SDK does not yet declare `text.verbosity`.
+
+Recordings can contain prompts, outputs, error stacks, and metadata. Default redaction covers only selected bearer-token and `sk-` patterns; review recordings before sharing them.
 
 ---
 
-## Quickstart (Node-RED Enterprise Demo)
+## Quickstart (Node-RED Demo)
+
+The checked-in fixtures support offline replay immediately after installation. Recording is optional and makes paid API calls.
 
 ### 1. Install & Setup
 
 ```bash
-npm install
-
-# Create your local env file
-cp .env.example .env
+npm ci
 ```
 
-### 2. Record (The "Golden Run")
+The examples read environment variables directly; they do not automatically load `.env` files. See `.env.example` for variable names.
+
+### 2. Record (Optional)
 
 Requires OpenAI API Key. Captures the run trace to disk.
 
@@ -147,21 +122,21 @@ npm run nodered:record
 
 ### 3. Replay (The "Regression Test")
 
-No API Key required. Instant feedback.
+No API key is required for the supplied recordings.
 
 ```bash
 unset OPENAI_API_KEY
 npm run nodered:replay
 ```
 
-(Notice the 0ms latency and 100% token savings)
+Reported token estimates come from saved usage metadata. Replay incurs local work and makes no new wrapped provider calls; it does not measure live model quality or actual financial savings.
 
-### 4. Docker (Production Simulation)
+### 4. Docker (Offline Replay)
 
-Prove the code runs anywhere (no local dependencies).
+Use committed files as the build context to exclude untracked local files. Review tracked contents before sharing an image. This exercises the demo in a container, not a production deployment.
 
 ```bash
-docker build -t agent-cassette .
+git archive HEAD | docker build -t agent-cassette -
 docker run agent-cassette
 ```
 
@@ -171,12 +146,19 @@ docker run agent-cassette
 
 We use ESLint and Prettier to maintain high engineering standards.
 
+CI and Docker currently target Node.js 20, which is [end-of-life](https://nodejs.org/en/about/previous-releases). Moving both to a supported LTS is a separate maintenance follow-up.
+
 ```bash
 # Run Unit Tests
 npm test
 
 # Check Code Quality
 npm run lint
+./node_modules/.bin/tsc --noEmit
+
+# Exercise both supplied offline workflows
+npm run demo:replay
+npm run nodered:replay
 ```
 
 ---
@@ -186,7 +168,7 @@ npm run lint
 ### v0: Explicit Wrappers (Current)
 
 - **Architecture:** Manual wrapping of specific functions.
-- **Status:** ✅ Stable, Docker-ready, Type-Safe.
+- **Status:** Prototype with TypeScript checks and offline replay tests; identity limitations are listed above.
 - **Trade-off:** High control, but requires code changes to integrate.
 
 ### v1: Network Interception (Planned)
